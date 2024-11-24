@@ -1,0 +1,170 @@
+<html><head><base href="." /><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Infinite Pi Generator</title><style>
+body {
+    background: linear-gradient(45deg, #2c0447, #4a0080);  /* Changed to purple gradient */
+    color: #fff;
+    font-family: 'Courier New', monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    padding: 20px;
+}
+
+.pi-container {
+    background: rgba(74, 0, 128, 0.3);  /* Changed to purple background */
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(147, 0, 255, 0.3);  /* Purple glow */
+    margin: 20px;
+    max-width: 800px;
+    overflow-wrap: break-word;
+}
+
+.pi-symbol {
+    font-size: 48px;
+    margin-bottom: 20px;
+    animation: pulse 2s infinite;
+    color: #b088ff;  /* Light purple color */
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+button {
+    background: #8a2be2;  /* Purple button */
+    border: none;
+    padding: 10px 20px;
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+    margin: 10px;
+    transition: transform 0.2s;
+}
+
+button:hover {
+    transform: scale(1.1);
+    background: #9b4dff;  /* Lighter purple on hover */
+}
+
+#piDigits {
+    font-size: 18px;
+    line-height: 1.5;
+    letter-spacing: 2px;
+    color: #e6d5ff;  /* Light purple text */
+}
+
+.controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    align-items: center;
+}
+
+#speed {
+    width: 200px;
+    accent-color: #8a2be2;  /* Purple slider */
+}
+
+.digit-counter {
+    background: rgba(74, 0, 128, 0.3);  /* Purple background */
+    padding: 10px 20px;
+    border-radius: 5px;
+    margin-top: 20px;
+    font-size: 18px;
+    border: 1px solid #b088ff;  /* Purple border */
+}
+</style></head><body>
+    <div class="pi-symbol">π</div>
+    <div class="controls">
+        <button id="startStop">Start</button>
+        <button id="reset">Reset</button>
+        <input type="range" id="speed" min="1" max="10000" value="500">
+        <span>Speed: <span id="speedValue">500</span>ms</span>
+    </div>
+    <div class="digit-counter">Digits: <span id="digitCount">0</span></div>
+    <div class="pi-container">
+        <div id="piDigits">π</div>
+    </div>
+
+    <script>
+        // Using a Web Worker to calculate Pi digits without blocking the main thread
+        const piWorker = new Worker(URL.createObjectURL(new Blob([`
+            function* piGenerator() {
+                let q = 1n;
+                let r = 180n;
+                let t = 60n;
+                let i = 2n;
+                while (true) {
+                    let digit = ((i * 27n - 12n) * q + r * 5n) / (t * 5n);
+                    yield Number(digit);
+                    let u = i * 3n;
+                    u = (u + 1n) * 3n * (u + 2n);
+                    r = u * 10n * (q * (i * 5n - 2n) + r - t * digit);
+                    q *= 10n * i * (i++ * 2n - 1n);
+                    t *= u;
+                }
+            }
+
+            const generator = piGenerator();
+            self.onmessage = function(e) {
+                if (e.data === 'next') {
+                    const digit = generator.next().value;
+                    self.postMessage(digit);
+                }
+            };
+        `], {type: 'text/javascript'})));
+
+        let isRunning = false;
+        let digits = '3.';
+        let digitCount = 1;
+        let timeout;
+        
+        const startStopBtn = document.getElementById('startStop');
+        const resetBtn = document.getElementById('reset');
+        const piDigits = document.getElementById('piDigits');
+        const speedSlider = document.getElementById('speed');
+        const speedValue = document.getElementById('speedValue');
+        const digitCountDisplay = document.getElementById('digitCount');
+
+        startStopBtn.addEventListener('click', () => {
+            isRunning = !isRunning;
+            startStopBtn.textContent = isRunning ? 'Stop' : 'Start';
+            if (isRunning) {
+                generateDigits();
+            } else {
+                clearTimeout(timeout);
+            }
+        });
+
+        resetBtn.addEventListener('click', () => {
+            digits = '3.';
+            digitCount = 1;
+            digitCountDisplay.textContent = digitCount;
+            piDigits.textContent = digits + '14159...';
+            isRunning = false;
+            startStopBtn.textContent = 'Start';
+            clearTimeout(timeout);
+        });
+
+        speedSlider.addEventListener('input', () => {
+            speedValue.textContent = speedSlider.value;
+        });
+
+        function generateDigits() {
+            if (!isRunning) return;
+            
+            piWorker.postMessage('next');
+            piWorker.onmessage = function(e) {
+                digits += e.data;
+                digitCount++;
+                digitCountDisplay.textContent = digitCount;
+                piDigits.textContent = digits;
+                timeout = setTimeout(generateDigits, parseInt(speedSlider.value));
+            };
+        }
+    </script>
+</body></html>
