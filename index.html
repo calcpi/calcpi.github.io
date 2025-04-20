@@ -110,6 +110,7 @@ button:hover {
             }
 
             const generator = piGenerator();
+            generator.next();
             self.onmessage = function(e) {
                 if (e.data === 'next') {
                     const digit = generator.next().value;
